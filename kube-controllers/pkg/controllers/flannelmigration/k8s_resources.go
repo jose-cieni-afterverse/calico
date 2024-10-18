@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"os"
 	"time"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -507,10 +508,23 @@ func (n k8snode) execCommandInPod(k8sClientset *kubernetes.Clientset, namespace,
 }
 
 func (n k8snode) Drain() error {
+	podSelector := os.Getenv("DRAIN_POD_SELECTOR")
+
 	nodeName := string(n)
 	log.Infof("Start drain node %s", nodeName)
-	out, err := exec.Command("/usr/bin/kubectl", "drain",
+
+	var out []byte
+	var err error
+
+
+	if podSelector != "" {
+		out, err = exec.Command("/usr/bin/kubectl", "drain",
+		"--ignore-daemonsets", "--delete-local-data", "--force", "--pod-selector", podSelector, nodeName).CombinedOutput()
+	} else {
+		out, err = exec.Command("/usr/bin/kubectl", "drain",
 		"--ignore-daemonsets", "--delete-local-data", "--force", nodeName).CombinedOutput()
+	}
+
 	if err != nil {
 		log.Errorf("Drain node %s. \n ---Drain Node--- \n%s\n ------", nodeName, string(out))
 		return err
